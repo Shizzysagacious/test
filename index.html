@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="google-adsense-account" content="ca-pub-1874216482113052">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAINFRAME // GAME HUB v2.0</title>
+    <style>
+        /* --- RESET & VARS --- */
+        :root {
+            --bg-color: #050505;
+            --term-green: #0aff0a;
+            --term-dim: #003b00;
+            --accent: #ff0055;
+            --warning: #ffaa00;
+            --glass: rgba(10, 255, 10, 0.05);
+            --font-main: 'Courier New', Courier, monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--term-green);
+            font-family: var(--font-main);
+            overflow-x: hidden;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- CRT OVERLAY EFFECTS --- */
+        .scanlines {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.2) 50%,
+                rgba(0,0,0,0.2)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        .flicker-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 255, 10, 0.02);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 998;
+            animation: flicker 0.15s infinite;
+        }
+
+        /* --- BOOT SEQUENCE SCREEN --- */
+        #boot-screen {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 100;
+            padding: 20px;
+        }
+
+        .log-line {
+            width: 100%;
+            max-width: 600px;
+            opacity: 0;
+            margin-bottom: 5px;
+        }
+
+        /* --- AUTH MODAL --- */
+        #auth-modal {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 20, 0, 0.95);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(3px);
+        }
+
+        .auth-terminal {
+            width: 90%;
+            max-width: 500px;
+            border: 2px solid var(--term-green);
+            background: rgba(5, 15, 5, 0.9);
+            padding: 2rem;
+            box-shadow: 0 0 30px var(--term-dim);
+        }
+
+        .auth-header {
+            border-bottom: 1px solid var(--term-dim);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            font-size: 1.5rem;
+            text-transform: uppercase;
+        }
+
+        .auth-input {
+            width: 100%;
+            background: rgba(0, 30, 0, 0.5);
+            border: 1px solid var(--term-dim);
+            color: var(--term-green);
+            padding: 10px;
+            margin-bottom: 1rem;
+            font-family: var(--font-main);
+            font-size: 0.9rem;
+        }
+
+        .auth-input:focus {
+            outline: none;
+            border-color: var(--term-green);
+            box-shadow: 0 0 10px var(--term-dim);
+        }
+
+        .auth-btn {
+            background: var(--term-green);
+            color: black;
+            border: none;
+            padding: 10px 20px;
+            font-family: var(--font-main);
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+        }
+
+        .auth-btn:hover {
+            background: #fff;
+        }
+
+        .auth-switch {
+            background: transparent;
+            color: var(--term-green);
+            border: 1px solid var(--term-dim);
+            padding: 10px 20px;
+            font-family: var(--font-main);
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        .auth-switch:hover {
+            border-color: var(--term-green);
+        }
+
+        .auth-error {
+            color: var(--accent);
+            font-size: 0.8rem;
+            margin-bottom: 1rem;
+            text-align: center;
+            display: none;
+        }
+
+        /* --- DASHBOARD --- */
+        #dashboard {
+            display: none;
+            opacity: 0;
+            transition: opacity 1s ease;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            flex: 1;
+        }
+
+        header {
+            border-bottom: 2px solid var(--term-green);
+            padding-bottom: 1rem;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            text-transform: uppercase;
+            flex-wrap: wrap;
+        }
+
+        .header-left {
+            flex: 1;
+        }
+
+        .header-right {
+            text-align: right;
+        }
+
+        h1 {
+            font-size: 2rem;
+            text-shadow: 0 0 10px var(--term-green);
+        }
+
+        .user-info {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-badge {
+            font-size: 0.8rem;
+            background: var(--term-green);
+            color: var(--bg-color);
+            padding: 2px 8px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .logout-btn {
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid var(--term-dim);
+            padding: 2px 8px;
+            font-family: var(--font-main);
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-left: 10px;
+        }
+
+        .logout-btn:hover {
+            border-color: var(--accent);
+        }
+
+        /* --- STATS BAR --- */
+        .stats-bar {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: rgba(0, 30, 0, 0.3);
+            border: 1px solid var(--term-dim);
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            text-align: center;
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            color: var(--term-green);
+            font-weight: bold;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            text-transform: uppercase;
+        }
+
+        /* --- GRID SYSTEM --- */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        /* --- CARD DESIGN --- */
+        .card {
+            border: 1px solid var(--term-dim);
+            background: var(--glass);
+            padding: 1.5rem;
+            position: relative;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: var(--term-green);
+            overflow: hidden;
+            display: block;
+        }
+
+        .card:hover {
+            border-color: var(--term-green);
+            box-shadow: 0 0 15px var(--term-dim);
+            transform: translateY(-5px);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(10,255,10,0.2), transparent);
+            transition: 0.5s;
+        }
+
+        .card:hover::before {
+            left: 100%;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--term-dim);
+            padding-bottom: 0.5rem;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .card-id {
+            font-size: 0.8rem;
+            opacity: 0.7;
+        }
+
+        .card-desc {
+            font-size: 0.9rem;
+            line-height: 1.4;
+            opacity: 0.8;
+            margin-bottom: 1.5rem;
+        }
+
+        .score-display {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--term-dim);
+            font-size: 0.9rem;
+        }
+
+        .user-score {
+            color: var(--warning);
+            font-weight: bold;
+        }
+
+        .top-score {
+            color: var(--accent);
+        }
+
+        .new-tag {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: var(--accent);
+            color: #fff;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            animation: pulse 1s infinite;
+        }
+
+        /* --- LEADERBOARD CARD --- */
+        .leaderboard-card {
+            grid-column: 1 / -1;
+            background: rgba(0, 40, 0, 0.3);
+            border-color: var(--warning);
+        }
+
+        .leaderboard-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0, 59, 0, 0.5);
+        }
+
+        .leaderboard-rank {
+            color: var(--warning);
+            font-weight: bold;
+            width: 30px;
+        }
+
+        .leaderboard-user {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .leaderboard-score {
+            color: var(--term-green);
+            font-weight: bold;
+            width: 80px;
+            text-align: right;
+        }
+
+        /* --- SUBMIT SCORE MODAL --- */
+        #submit-score-modal {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 20, 0, 0.95);
+            z-index: 1001;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(3px);
+        }
+
+        .score-terminal {
+            width: 90%;
+            max-width: 400px;
+            border: 2px solid var(--warning);
+            background: rgba(5, 15, 5, 0.95);
+            padding: 2rem;
+            box-shadow: 0 0 30px rgba(255, 170, 0, 0.3);
+        }
+
+        /* --- ANIMATIONS --- */
+        @keyframes flicker {
+            0% { opacity: 0.02; }
+            5% { opacity: 0.05; }
+            10% { opacity: 0.02; }
+            100% { opacity: 0.02; }
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .fade-in-up {
+            animation: slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+
+        @keyframes typewriter {
+            from { width: 0; }
+            to { width: 100%; }
+        }
+
+        .typing {
+            overflow: hidden;
+            white-space: nowrap;
+            animation: typewriter 2s steps(40) 1s 1 normal both;
+        }
+
+    </style>
+    <!-- Supabase Client -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1874216482113052" crossorigin="anonymous"></script>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+    <div class="flicker-overlay"></div>
+
+    <!-- AUTH MODAL (Shows first) -->
+    <div id="auth-modal">
+        <div class="auth-terminal">
+            <div class="auth-header">MAINFRAME ACCESS PROTOCOL v2.0</div>
+            <div id="auth-error" class="auth-error"></div>
+            
+            <!-- SIGNUP FORM -->
+            <div id="signup-form">
+                <div style="text-align: center; margin-bottom: 1rem; color: var(--warning);">
+                    [ NEW USER REGISTRATION REQUIRED ]
+                </div>
+                <input type="email" id="signup-email" class="auth-input" placeholder="ENTER EMAIL ADDRESS" autocomplete="off">
+                <input type="password" id="signup-password" class="auth-input" placeholder="SET ACCESS CODE (8+ chars)" autocomplete="off">
+                <input type="text" id="signup-username" class="auth-input" placeholder="CHOOSE CODENAME" autocomplete="off">
+                <button onclick="handleSignUp()" class="auth-btn">INITIATE REGISTRATION</button>
+                <button onclick="switchToLogin()" class="auth-switch">EXISTING USER? LOGIN</button>
+            </div>
+
+            <!-- LOGIN FORM -->
+            <div id="login-form" style="display: none;">
+                <div style="text-align: center; margin-bottom: 1rem; color: var(--term-green);">
+                    [ AUTHORIZED USER LOGIN ]
+                </div>
+                <input type="email" id="login-email" class="auth-input" placeholder="EMAIL ADDRESS" autocomplete="off">
+                <input type="password" id="login-password" class="auth-input" placeholder="ACCESS CODE" autocomplete="off">
+                <button onclick="handleLogin()" class="auth-btn">ACCESS MAINFRAME</button>
+                <button onclick="switchToSignup()" class="auth-switch">NEW TO MAINFRAME? REGISTER</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOOT SCREEN -->
+    <div id="boot-screen">
+        <div id="terminal-logs"></div>
+    </div>
+
+    <!-- SUBMIT SCORE MODAL -->
+    <div id="submit-score-modal">
+        <div class="score-terminal">
+            <div class="auth-header" id="score-game-title">SCORE SUBMISSION</div>
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                <div id="score-game-desc"></div>
+                <div style="margin: 1rem 0; font-size: 1.2rem; color: var(--warning);">
+                    ENTER YOUR FINAL SCORE:
+                </div>
+                <input type="number" id="score-input" class="auth-input" style="text-align: center; font-size: 1.5rem;" autofocus>
+                <div style="margin-top: 1rem; font-size: 0.8rem; opacity: 0.7;">
+                    Score must be higher than your current high score
+                </div>
+            </div>
+            <button onclick="submitScore()" class="auth-btn">CONFIRM TRANSMISSION</button>
+            <button onclick="hideScoreModal()" class="auth-switch">CANCEL</button>
+        </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <main id="dashboard">
+        <header>
+            <div class="header-left">
+                <h1>MAINFRAME_V2</h1>
+                <div class="user-info">
+                    USER: <span id="current-username">[LOADING...]</span>
+                    <button onclick="handleLogout()" class="logout-btn">[LOGOUT]</button>
+                </div>
+                <small>SCORE TRACKING: <span id="games-played">0</span>/<span id="total-games">0</span> MODULES</small>
+            </div>
+            <div class="header-right">
+                <div class="status-badge">SYSTEM ONLINE</div>
+                <div style="margin-top: 5px; font-size: 0.8rem;">
+                    TOTAL SCORE: <span id="total-score">0</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- STATS BAR -->
+        <div class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-value" id="global-rank">--</div>
+                <div class="stat-label">GLOBAL RANK</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="games-completed">0</div>
+                <div class="stat-label">MODULES COMPLETED</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="high-score">0</div>
+                <div class="stat-label">HIGHEST SCORE</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="avg-score">0</div>
+                <div class="stat-label">AVERAGE SCORE</div>
+            </div>
+        </div>
+
+        <!-- GAME GRID -->
+        <div class="grid-container" id="game-grid">
+            <!-- Games will be loaded here -->
+        </div>
+
+        <!-- LEADERBOARD CARD -->
+        <div class="card leaderboard-card fade-in-up">
+            <div class="card-header">
+                <span class="card-title">GLOBAL LEADERBOARD</span>
+                <span class="card-id">MOD_LB</span>
+            </div>
+            <div class="card-desc" style="margin-bottom: 1rem;">
+                Top 10 players by total score across all modules. Updated in real-time.
+            </div>
+            <div class="leaderboard-list" id="global-leaderboard">
+                <div style="text-align: center; padding: 2rem;">Loading leaderboard...</div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 MAINFRAME HUB v2.0 - SCORE TRACKING ACTIVE</p>
+        <br>
+        <a href="privacy.html">PRIVACY PROTOCOL</a>
+        <span>|</span>
+        <a href="mailto:support@1000games.vercel.app">CONTACT ADMIN</a>
+    </footer>
+
+    <script>
+        // ==============================
+        // CONFIGURATION
+        // ==============================
+        // REPLACE THESE WITH YOUR SUPABASE CREDENTIALS
+        const SUPABASE_URL = 'https://zpgudywoatpjetswjoux.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_AqEyLg0UOuNU49teJ-oYkA_4stUjy_o';
+        
+        // Initialize Supabase client
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ==============================
+        // GAME DATA
+        // ==============================
+        const games = [
+            {
+                id: "MOD_001",
+                name: "Grid Runner 1D",
+                url: "https://defender-eight.vercel.app",
+                desc: "High-velocity linear defense protocol. Protect the line.",
+                isNew: true
+            },
+            {
+                id: "MOD_002",
+                name: "Chess Seven",
+                url: "https://chess-seven-nu.vercel.app/",
+                desc: "Strategic warfare simulator. Standard rules apply.",
+                isNew: false
+            },
+            {
+                id: "MOD_003",
+                name: "TypeFaster",
+                url: "https://typefaster-three.vercel.app",
+                desc: "Input velocity training. Measure your WPM efficiency.",
+                isNew: false
+            },
+            {
+                id: "MOD_004",
+                name: "Tic-Tac-Toe",
+                url: "https://tic-tac-toe-1-ruby.vercel.app",
+                desc: "Logic core calibration. Ruby-based opponent.",
+                isNew: false
+            },
+            {
+                id: "MOD_005",
+                name: "Speed Reader",
+                url: "https://speedreader-livid.vercel.app/",
+                desc: "Data ingestion accelerator. Rapid text processing.",
+                isNew: false
+            },
+            {
+                id: "MOD_006",
+                name: "Checkers Gold",
+                url: "https://checkers-gold.vercel.app/",
+                desc: "Tactical board simulation. Jump logic active.",
+                isNew: false
+            }
+        ];
+
+        // ==============================
+        // STATE MANAGEMENT
+        // ==============================
+        let currentUser = null;
+        let userScores = {};
+        let currentGameForScoring = null;
+        let gameTimeoutId = null;
+
+        // ==============================
+        // DOM ELEMENTS
+        // ==============================
+        const authModal = document.getElementById('auth-modal');
+        const bootScreen = document.getElementById('boot-screen');
+        const dashboard = document.getElementById('dashboard');
+        const gameGrid = document.getElementById('game-grid');
+        const globalLeaderboard = document.getElementById('global-leaderboard');
+        const submitScoreModal = document.getElementById('submit-score-modal');
+
+        // ==============================
+        // AUTHENTICATION FUNCTIONS
+        // ==============================
+        function switchToLogin() {
+            document.getElementById('signup-form').style.display = 'none';
+            document.getElementById('login-form').style.display = 'block';
+            hideAuthError();
+        }
+
+        function switchToSignup() {
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('signup-form').style.display = 'block';
+            hideAuthError();
+        }
+
+        function showAuthError(message) {
+            const errorEl = document.getElementById('auth-error');
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+        }
+
+        function hideAuthError() {
+            document.getElementById('auth-error').style.display = 'none';
+        }
+
+        async function handleSignUp() {
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const username = document.getElementById('signup-username').value;
+
+            if (!email || !password || !username) {
+                showAuthError('[ERROR] All fields required');
+                return;
+            }
+
+            if (password.length < 8) {
+                showAuthError('[ERROR] Access code must be 8+ characters');
+                return;
+            }
+
+            showAuthError('[PROCESSING] Creating user profile...');
+
+            try {
+                // Step 1: Create auth user
+                const { data: authData, error: authError } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        data: { username }
+                    }
+                });
+
+                if (authError) throw authError;
+
+                // Step 2: Create profile in profiles table
+                const { error: profileError } = await supabase
+                    .from('profiles')
+                    .insert({
+                        id: authData.user.id,
+                        username: username
+                    });
+
+                if (profileError) throw profileError;
+
+                // Step 3: Initialize user scores for all games
+                const scorePromises = games.map(game => 
+                    supabase.from('user_scores').insert({
+                        user_id: authData.user.id,
+                        game_id: game.id,
+                        score: 0
+                    })
+                );
+
+                await Promise.all(scorePromises);
+
+                showAuthError('[SUCCESS] Registration complete! Welcome to MAINFRAME.');
+                
+                // Auto-login after successful registration
+                setTimeout(async () => {
+                    const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+                        email,
+                        password
+                    });
+
+                    if (loginError) {
+                        showAuthError('[ERROR] Auto-login failed. Please login manually.');
+                    } else {
+                        currentUser = loginData.user;
+                        startBootSequence();
+                    }
+                }, 2000);
+
+            } catch (error) {
+                showAuthError(`[ERROR] ${error.message}`);
+            }
+        }
+
+        async function handleLogin() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            if (!email || !password) {
+                showAuthError('[ERROR] Both fields required');
+                return;
+            }
+
+            showAuthError('[PROCESSING] Verifying credentials...');
+
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+
+                if (error) throw error;
+
+                currentUser = data.user;
+                startBootSequence();
+
+            } catch (error) {
+                showAuthError(`[ERROR] ${error.message}`);
+            }
+        }
+
+        async function handleLogout() {
+            await supabase.auth.signOut();
+            currentUser = null;
+            location.reload();
+        }
+
+        // ==============================
+        // BOOT SEQUENCE
+        // ==============================
+        const bootLogs = [
+            "> INITIALIZING KERNEL...",
+            "> CONNECTING TO DATABASE NODES...",
+            "> LOADING USER PROFILE...",
+            "> SYNCHRONIZING SCORE DATA...",
+            "> CALCULATING STATISTICS...",
+            "> LOADING GAME MODULES...",
+            "> SYSTEM READY."
+        ];
+
+        async function startBootSequence() {
+            authModal.style.display = 'none';
+            bootScreen.style.display = 'flex';
+            
+            const logsContainer = document.getElementById('terminal-logs');
+            logsContainer.innerHTML = '';
+
+            for (let i = 0; i < bootLogs.length; i++) {
+                const p = document.createElement('div');
+                p.className = 'log-line';
+                p.innerText = bootLogs[i];
+                p.style.fontFamily = "monospace";
+                logsContainer.appendChild(p);
+                
+                p.style.opacity = 1;
+                await new Promise(r => setTimeout(r, Math.random() * 300 + 200));
+            }
+
+            setTimeout(async () => {
+                await loadUserData();
+                await loadLeaderboard();
+                bootScreen.style.display = 'none';
+                dashboard.style.display = 'block';
+                setTimeout(() => dashboard.style.opacity = 1, 50);
+            }, 800);
+        }
+
+        // ==============================
+        // USER DATA FUNCTIONS
+        // ==============================
+        async function loadUserData() {
+            if (!currentUser) return;
+
+            // Get user profile
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', currentUser.id)
+                .single();
+
+            document.getElementById('current-username').textContent = profile?.username || currentUser.email;
+
+            // Get all user scores
+            const { data: scores } = await supabase
+                .from('user_scores')
+                .select('*')
+                .eq('user_id', currentUser.id);
+
+            // Organize scores by game_id
+            userScores = {};
+            if (scores) {
+                scores.forEach(score => {
+                    userScores[score.game_id] = score.score;
+                });
+            }
+
+            updateStats();
+            renderGameGrid();
+        }
+
+        function updateStats() {
+            const scores = Object.values(userScores).filter(s => s > 0);
+            const totalScore = scores.reduce((a, b) => a + b, 0);
+            const gamesCompleted = scores.length;
+            const highScore = scores.length > 0 ? Math.max(...scores) : 0;
+            const avgScore = gamesCompleted > 0 ? Math.round(totalScore / gamesCompleted) : 0;
+
+            document.getElementById('total-score').textContent = totalScore;
+            document.getElementById('games-completed').textContent = gamesCompleted;
+            document.getElementById('high-score').textContent = highScore;
+            document.getElementById('avg-score').textContent = avgScore;
+            document.getElementById('games-played').textContent = gamesCompleted;
+            document.getElementById('total-games').textContent = games.length;
+        }
+
+        // ==============================
+        // GAME GRID FUNCTIONS
+        // ==============================
+        function renderGameGrid() {
+            gameGrid.innerHTML = '';
+            
+            games.forEach((game, index) => {
+                const userScore = userScores[game.id] || 0;
+                
+                const card = document.createElement('div');
+                card.className = 'card fade-in-up';
+                card.style.animationDelay = `${index * 100}ms`;
+                card.dataset.gameId = game.id;
+
+                const newBadge = game.isNew ? `<div class="new-tag">NEW ARRIVAL</div>` : '';
+
+                card.innerHTML = `
+                    ${newBadge}
+                    <div class="card-header">
+                        <span class="card-title">${game.name}</span>
+                        <span class="card-id">${game.id}</span>
+                    </div>
+                    <div class="card-desc">${game.desc}</div>
+                    <div class="score-display">
+                        <div>
+                            YOUR SCORE: <span class="user-score">${userScore}</span>
+                        </div>
+                        <div>
+                            TOP: <span class="top-score">${getTopScoreForGame(game.id)}</span>
+                        </div>
+                    </div>
+                    <div style="text-align: right; font-size: 0.8rem; margin-top: 10px;">[ CLICK TO LAUNCH ]</div>
+                `;
+
+                card.addEventListener('click', () => launchGame(game));
+                gameGrid.appendChild(card);
+            });
+        }
+
+        function getTopScoreForGame(gameId) {
+            // This would come from a leaderboard query
+            // For now, return placeholder
+            return "---";
+        }
+
+        // ==============================
+        // GAME LAUNCH & SCORE TRACKING
+        // ==============================
+        function launchGame(game) {
+            currentGameForScoring = game;
+            
+            // Show score modal immediately
+            document.getElementById('score-game-title').textContent = game.name;
+            document.getElementById('score-game-desc').textContent = game.desc;
+            document.getElementById('score-input').value = '';
+            submitScoreModal.style.display = 'flex';
+            
+            // Open game in new tab
+            window.open(game.url, '_blank');
+        }
+
+        function showScoreModal() {
+            submitScoreModal.style.display = 'flex';
+            document.getElementById('score-input').focus();
+        }
+
+        function hideScoreModal() {
+            submitScoreModal.style.display = 'none';
+            currentGameForScoring = null;
+        }
+
+        async function submitScore() {
+            if (!currentGameForScoring || !currentUser) return;
+
+            const scoreInput = document.getElementById('score-input');
+            const newScore = parseInt(scoreInput.value);
+
+            if (isNaN(newScore)) {
+                alert('[ERROR] Please enter a valid number');
+                return;
+            }
+
+            const currentScore = userScores[currentGameForScoring.id] || 0;
+            if (newScore <= currentScore) {
+                alert(`[ERROR] Score must be higher than your current score: ${currentScore}`);
+                return;
+            }
+
+            try {
+                // Update score in database
+                const { error } = await supabase
+                    .from('user_scores')
+                    .update({ score: newScore })
+                    .eq('user_id', currentUser.id)
+                    .eq('game_id', currentGameForScoring.id);
+
+                if (error) throw error;
+
+                // Update local state
+                userScores[currentGameForScoring.id] = newScore;
+                
+                // Update UI
+                updateStats();
+                
+                // Update the specific game card
+                const gameCard = document.querySelector(`[data-game-id="${currentGameForScoring.id}"]`);
+                if (gameCard) {
+                    const userScoreSpan = gameCard.querySelector('.user-score');
+                    if (userScoreSpan) {
+                        userScoreSpan.textContent = newScore;
+                        userScoreSpan.style.color = 'var(--warning)';
+                        setTimeout(() => {
+                            userScoreSpan.style.color = 'var(--warning)';
+                        }, 1000);
+                    }
+                }
+
+                hideScoreModal();
+                
+                // Show success message
+                const successMsg = document.createElement('div');
+                successMsg.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: var(--term-green);
+                    color: black;
+                    padding: 10px 20px;
+                    font-family: var(--font-main);
+                    z-index: 10000;
+                    border: 2px solid var(--term-dim);
+                    animation: slideUp 0.3s ease;
+                `;
+                successMsg.textContent = `✓ SCORE UPDATED: ${newScore} POINTS`;
+                document.body.appendChild(successMsg);
+                
+                setTimeout(() => successMsg.remove(), 3000);
+                
+                // Refresh leaderboard
+                loadLeaderboard();
+
+            } catch (error) {
+                alert(`[ERROR] Failed to submit score: ${error.message}`);
+            }
+        }
+
+        // ==============================
+        // LEADERBOARD FUNCTIONS
+        // ==============================
+        async function loadLeaderboard() {
+            try {
+                // Get top 10 users by total score
+                const { data: leaderboardData, error } = await supabase
+                    .from('user_scores')
+                    .select(`
+                        score,
+                        game_id,
+                        profiles (username)
+                    `)
+                    .order('score', { ascending: false })
+                    .limit(100);
+
+                if (error) throw error;
+
+                // Group by user and calculate totals
+                const userTotals = {};
+                leaderboardData.forEach(entry => {
+                    const username = entry.profiles?.username || 'Anonymous';
+                    if (!userTotals[username]) {
+                        userTotals[username] = 0;
+                    }
+                    userTotals[username] += entry.score;
+                });
+
+                // Sort users by total score
+                const sortedUsers = Object.entries(userTotals)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 10);
+
+                // Update global rank for current user
+                const currentUsername = document.getElementById('current-username').textContent;
+                const userIndex = sortedUsers.findIndex(([username]) => username === currentUsername);
+                const globalRank = userIndex !== -1 ? userIndex + 1 : '--';
+                document.getElementById('global-rank').textContent = globalRank;
+
+                // Render leaderboard
+                let leaderboardHTML = '';
+                sortedUsers.forEach(([username, totalScore], index) => {
+                    const isCurrentUser = username === currentUsername;
+                    leaderboardHTML += `
+                        <div class="leaderboard-item" style="${isCurrentUser ? 'background: rgba(10, 255, 10, 0.1);' : ''}">
+                            <div class="leaderboard-rank">${index + 1}</div>
+                            <div class="leaderboard-user" style="${isCurrentUser ? 'color: var(--warning);' : ''}">
+                                ${username}
+                            </div>
+                            <div class="leaderboard-score">${totalScore}</div>
+                        </div>
+                    `;
+                });
+
+                if (sortedUsers.length === 0) {
+                    leaderboardHTML = '<div style="text-align: center; padding: 2rem;">No scores recorded yet. Be the first!</div>';
+                }
+
+                globalLeaderboard.innerHTML = leaderboardHTML;
+
+            } catch (error) {
+                console.error('Error loading leaderboard:', error);
+                globalLeaderboard.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--accent);">Error loading leaderboard</div>';
+            }
+        }
+
+        // ==============================
+        // INITIALIZATION
+        // ==============================
+        async function init() {
+            // Check for existing session
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (session) {
+                currentUser = session.user;
+                startBootSequence();
+            } else {
+                authModal.style.display = 'flex';
+                bootScreen.style.display = 'none';
+                dashboard.style.display = 'none';
+            }
+
+            // Listen for auth changes
+            supabase.auth.onAuthStateChange((event, session) => {
+                if (event === 'SIGNED_IN') {
+                    currentUser = session.user;
+                    if (bootScreen.style.display !== 'flex') {
+                        startBootSequence();
+                    }
+                } else if (event === 'SIGNED_OUT') {
+                    currentUser = null;
+                    location.reload();
+                }
+            });
+        }
+
+        // Start the app
+        window.addEventListener('load', init);
+
+    </script>
+</body>
+</html>
