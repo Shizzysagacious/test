@@ -465,14 +465,18 @@
             <div class="auth-header">MAINFRAME ACCESS PROTOCOL v2.0</div>
             <div id="auth-error" class="auth-error"></div>
             
+            <!-- Hidden dummy fields to confuse autofill -->
+            <input type="text" style="display:none;" aria-hidden="true">
+            <input type="password" style="display:none;" aria-hidden="true">
+            
             <!-- SIGNUP FORM -->
             <div id="signup-form">
                 <div style="text-align: center; margin-bottom: 1rem; color: var(--warning);">
                     [ NEW USER REGISTRATION REQUIRED ]
                 </div>
-                <input type="email" id="signup-email" class="auth-input" placeholder="ENTER EMAIL ADDRESS" autocomplete="off">
-                <input type="password" id="signup-password" class="auth-input" placeholder="SET ACCESS CODE (8+ chars)" autocomplete="off">
-                <input type="text" id="signup-username" class="auth-input" placeholder="CHOOSE CODENAME" autocomplete="off">
+                <input type="text" id="signup-email" class="auth-input" placeholder="ENTER EMAIL ADDRESS" autocomplete="off" data-lpignore="true" data-form-type="other">
+                <input type="password" id="signup-password" class="auth-input" placeholder="SET ACCESS CODE (8+ chars)" autocomplete="new-password" data-lpignore="true">
+                <input type="text" id="signup-username" class="auth-input" placeholder="CHOOSE CODENAME" autocomplete="off" data-lpignore="true">
                 <button onclick="handleSignUp()" class="auth-btn">INITIATE REGISTRATION</button>
                 <button onclick="switchToLogin()" class="auth-switch">EXISTING USER? LOGIN</button>
             </div>
@@ -482,8 +486,8 @@
                 <div style="text-align: center; margin-bottom: 1rem; color: var(--term-green);">
                     [ AUTHORIZED USER LOGIN ]
                 </div>
-                <input type="email" id="login-email" class="auth-input" placeholder="EMAIL ADDRESS" autocomplete="off">
-                <input type="password" id="login-password" class="auth-input" placeholder="ACCESS CODE" autocomplete="off">
+                <input type="text" id="login-email" class="auth-input" placeholder="EMAIL ADDRESS" autocomplete="off" data-lpignore="true" data-form-type="other">
+                <input type="password" id="login-password" class="auth-input" placeholder="ACCESS CODE" autocomplete="current-password" data-lpignore="true">
                 <button onclick="handleLogin()" class="auth-btn">ACCESS MAINFRAME</button>
                 <button onclick="switchToSignup()" class="auth-switch">NEW TO MAINFRAME? REGISTER</button>
             </div>
@@ -585,9 +589,8 @@
         // ==============================
         // CONFIGURATION
         // ==============================
-        // REPLACE THESE WITH YOUR SUPABASE CREDENTIALS
         const SUPABASE_URL = 'https://zpgudywoatpjetswjoux.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_AqEyLg0UOuNU49teJ-oYkA_4stUjy_o';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwZ3VkeXdvYXRwamV0c3dqb3V4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEwNzcwOTQsImV4cCI6MjA0NjY1MzA5NH0.TkKN4-vLbJ0zR2Z-jV68tZk1jqKjcvJD5iV6GgLq0x0';
         
         // Initialize Supabase client
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -645,8 +648,8 @@
         // ==============================
         let currentUser = null;
         let userScores = {};
+        let topScores = {};
         let currentGameForScoring = null;
-        let gameTimeoutId = null;
 
         // ==============================
         // DOM ELEMENTS
@@ -659,18 +662,45 @@
         const submitScoreModal = document.getElementById('submit-score-modal');
 
         // ==============================
+        // AUTOFILL FIX FUNCTIONS
+        // ==============================
+        function preventBase64Autofill() {
+            // Clear any existing base64 data immediately
+            const inputs = document.querySelectorAll('.auth-input[type="text"]');
+            inputs.forEach(input => {
+                if (input.value && (input.value.includes('base64') || input.value.startsWith('data:'))) {
+                    input.value = '';
+                }
+                
+                // Additional protection
+                input.setAttribute('autocapitalize', 'off');
+                input.setAttribute('autocorrect', 'off');
+                input.setAttribute('spellcheck', 'false');
+                
+                // Clear on focus
+                input.addEventListener('focus', function() {
+                    if (this.value && (this.value.includes('base64') || this.value.startsWith('data:'))) {
+                        this.value = '';
+                    }
+                });
+            });
+        }
+
+        // ==============================
         // AUTHENTICATION FUNCTIONS
         // ==============================
         function switchToLogin() {
             document.getElementById('signup-form').style.display = 'none';
             document.getElementById('login-form').style.display = 'block';
             hideAuthError();
+            preventBase64Autofill();
         }
 
         function switchToSignup() {
             document.getElementById('login-form').style.display = 'none';
             document.getElementById('signup-form').style.display = 'block';
             hideAuthError();
+            preventBase64Autofill();
         }
 
         function showAuthError(message) {
@@ -683,13 +713,30 @@
             document.getElementById('auth-error').style.display = 'none';
         }
 
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
         async function handleSignUp() {
-            const email = document.getElementById('signup-email').value;
+            const email = document.getElementById('signup-email').value.trim();
             const password = document.getElementById('signup-password').value;
-            const username = document.getElementById('signup-username').value;
+            const username = document.getElementById('signup-username').value.trim();
+
+            // Validate email is not base64
+            if (email.includes('base64') || email.startsWith('data:')) {
+                showAuthError('[ERROR] Please enter a valid email address, not a data URL');
+                document.getElementById('signup-email').value = '';
+                return;
+            }
 
             if (!email || !password || !username) {
                 showAuthError('[ERROR] All fields required');
+                return;
+            }
+
+            if (!isValidEmail(email)) {
+                showAuthError('[ERROR] Please enter a valid email address');
                 return;
             }
 
@@ -698,10 +745,14 @@
                 return;
             }
 
+            if (username.length < 3) {
+                showAuthError('[ERROR] Codename must be at least 3 characters');
+                return;
+            }
+
             showAuthError('[PROCESSING] Creating user profile...');
 
             try {
-                // Step 1: Create auth user
                 const { data: authData, error: authError } = await supabase.auth.signUp({
                     email,
                     password,
@@ -710,9 +761,15 @@
                     }
                 });
 
-                if (authError) throw authError;
+                if (authError) {
+                    if (authError.message.includes('already registered')) {
+                        showAuthError('[ERROR] Email already registered. Please login instead.');
+                    } else {
+                        throw authError;
+                    }
+                    return;
+                }
 
-                // Step 2: Create profile in profiles table
                 const { error: profileError } = await supabase
                     .from('profiles')
                     .insert({
@@ -720,9 +777,15 @@
                         username: username
                     });
 
-                if (profileError) throw profileError;
+                if (profileError) {
+                    if (profileError.code === '23505') {
+                        showAuthError('[ERROR] Codename already taken. Please choose another.');
+                    } else {
+                        throw profileError;
+                    }
+                    return;
+                }
 
-                // Step 3: Initialize user scores for all games
                 const scorePromises = games.map(game => 
                     supabase.from('user_scores').insert({
                         user_id: authData.user.id,
@@ -735,7 +798,6 @@
 
                 showAuthError('[SUCCESS] Registration complete! Welcome to MAINFRAME.');
                 
-                // Auto-login after successful registration
                 setTimeout(async () => {
                     const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
                         email,
@@ -751,16 +813,29 @@
                 }, 2000);
 
             } catch (error) {
-                showAuthError(`[ERROR] ${error.message}`);
+                console.error('Signup error:', error);
+                showAuthError(`[ERROR] ${error.message || 'Registration failed'}`);
             }
         }
 
         async function handleLogin() {
-            const email = document.getElementById('login-email').value;
+            const email = document.getElementById('login-email').value.trim();
             const password = document.getElementById('login-password').value;
+
+            // Validate email is not base64
+            if (email.includes('base64') || email.startsWith('data:')) {
+                showAuthError('[ERROR] Please enter a valid email address, not a data URL');
+                document.getElementById('login-email').value = '';
+                return;
+            }
 
             if (!email || !password) {
                 showAuthError('[ERROR] Both fields required');
+                return;
+            }
+
+            if (!isValidEmail(email)) {
+                showAuthError('[ERROR] Please enter a valid email address');
                 return;
             }
 
@@ -772,13 +847,21 @@
                     password
                 });
 
-                if (error) throw error;
+                if (error) {
+                    if (error.message.includes('Invalid login credentials')) {
+                        showAuthError('[ERROR] Invalid email or access code');
+                    } else {
+                        throw error;
+                    }
+                    return;
+                }
 
                 currentUser = data.user;
                 startBootSequence();
 
             } catch (error) {
-                showAuthError(`[ERROR] ${error.message}`);
+                console.error('Login error:', error);
+                showAuthError(`[ERROR] ${error.message || 'Login failed'}`);
             }
         }
 
@@ -821,6 +904,7 @@
 
             setTimeout(async () => {
                 await loadUserData();
+                await loadTopScores();
                 await loadLeaderboard();
                 bootScreen.style.display = 'none';
                 dashboard.style.display = 'block';
@@ -834,31 +918,75 @@
         async function loadUserData() {
             if (!currentUser) return;
 
-            // Get user profile
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', currentUser.id)
-                .single();
+            try {
+                const { data: profile, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', currentUser.id)
+                    .single();
 
-            document.getElementById('current-username').textContent = profile?.username || currentUser.email;
+                if (profileError) throw profileError;
 
-            // Get all user scores
-            const { data: scores } = await supabase
-                .from('user_scores')
-                .select('*')
-                .eq('user_id', currentUser.id);
+                document.getElementById('current-username').textContent = profile?.username || currentUser.email;
 
-            // Organize scores by game_id
-            userScores = {};
-            if (scores) {
-                scores.forEach(score => {
-                    userScores[score.game_id] = score.score;
+                const { data: scores, error: scoresError } = await supabase
+                    .from('user_scores')
+                    .select('*')
+                    .eq('user_id', currentUser.id);
+
+                if (scoresError) throw scoresError;
+
+                userScores = {};
+                if (scores) {
+                    scores.forEach(score => {
+                        userScores[score.game_id] = score.score;
+                    });
+                }
+
+                updateStats();
+                renderGameGrid();
+                
+            } catch (error) {
+                console.error('Error loading user data:', error);
+                document.getElementById('current-username').textContent = currentUser.email;
+            }
+        }
+
+        async function loadTopScores() {
+            try {
+                const { data: scoresData, error } = await supabase
+                    .from('user_scores')
+                    .select('game_id, score')
+                    .order('score', { ascending: false });
+
+                if (error) throw error;
+
+                topScores = {};
+                if (scoresData) {
+                    const gameMap = {};
+                    scoresData.forEach(item => {
+                        if (!gameMap[item.game_id] || item.score > gameMap[item.game_id]) {
+                            gameMap[item.game_id] = item.score;
+                        }
+                    });
+                    
+                    Object.keys(gameMap).forEach(gameId => {
+                        topScores[gameId] = gameMap[gameId];
+                    });
+                }
+                
+                games.forEach(game => {
+                    if (!topScores[game.id]) {
+                        topScores[game.id] = 0;
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Error loading top scores:', error);
+                games.forEach(game => {
+                    topScores[game.id] = 0;
                 });
             }
-
-            updateStats();
-            renderGameGrid();
         }
 
         function updateStats() {
@@ -884,6 +1012,7 @@
             
             games.forEach((game, index) => {
                 const userScore = userScores[game.id] || 0;
+                const topScore = topScores[game.id] || 0;
                 
                 const card = document.createElement('div');
                 card.className = 'card fade-in-up';
@@ -904,7 +1033,7 @@
                             YOUR SCORE: <span class="user-score">${userScore}</span>
                         </div>
                         <div>
-                            TOP: <span class="top-score">${getTopScoreForGame(game.id)}</span>
+                            TOP: <span class="top-score">${topScore}</span>
                         </div>
                     </div>
                     <div style="text-align: right; font-size: 0.8rem; margin-top: 10px;">[ CLICK TO LAUNCH ]</div>
@@ -915,31 +1044,18 @@
             });
         }
 
-        function getTopScoreForGame(gameId) {
-            // This would come from a leaderboard query
-            // For now, return placeholder
-            return "---";
-        }
-
         // ==============================
         // GAME LAUNCH & SCORE TRACKING
         // ==============================
         function launchGame(game) {
             currentGameForScoring = game;
             
-            // Show score modal immediately
             document.getElementById('score-game-title').textContent = game.name;
             document.getElementById('score-game-desc').textContent = game.desc;
             document.getElementById('score-input').value = '';
             submitScoreModal.style.display = 'flex';
             
-            // Open game in new tab
             window.open(game.url, '_blank');
-        }
-
-        function showScoreModal() {
-            submitScoreModal.style.display = 'flex';
-            document.getElementById('score-input').focus();
         }
 
         function hideScoreModal() {
@@ -953,8 +1069,8 @@
             const scoreInput = document.getElementById('score-input');
             const newScore = parseInt(scoreInput.value);
 
-            if (isNaN(newScore)) {
-                alert('[ERROR] Please enter a valid number');
+            if (isNaN(newScore) || newScore < 0) {
+                alert('[ERROR] Please enter a valid positive number');
                 return;
             }
 
@@ -965,37 +1081,38 @@
             }
 
             try {
-                // Update score in database
                 const { error } = await supabase
                     .from('user_scores')
-                    .update({ score: newScore })
-                    .eq('user_id', currentUser.id)
-                    .eq('game_id', currentGameForScoring.id);
+                    .upsert({
+                        user_id: currentUser.id,
+                        game_id: currentGameForScoring.id,
+                        score: newScore,
+                        updated_at: new Date().toISOString()
+                    }, {
+                        onConflict: 'user_id,game_id'
+                    });
 
                 if (error) throw error;
 
-                // Update local state
                 userScores[currentGameForScoring.id] = newScore;
                 
-                // Update UI
                 updateStats();
                 
-                // Update the specific game card
                 const gameCard = document.querySelector(`[data-game-id="${currentGameForScoring.id}"]`);
                 if (gameCard) {
                     const userScoreSpan = gameCard.querySelector('.user-score');
                     if (userScoreSpan) {
                         userScoreSpan.textContent = newScore;
                         userScoreSpan.style.color = 'var(--warning)';
+                        userScoreSpan.style.animation = 'pulse 1s';
                         setTimeout(() => {
-                            userScoreSpan.style.color = 'var(--warning)';
+                            userScoreSpan.style.animation = '';
                         }, 1000);
                     }
                 }
 
                 hideScoreModal();
                 
-                // Show success message
                 const successMsg = document.createElement('div');
                 successMsg.style.cssText = `
                     position: fixed;
@@ -1014,10 +1131,12 @@
                 
                 setTimeout(() => successMsg.remove(), 3000);
                 
-                // Refresh leaderboard
-                loadLeaderboard();
+                await loadTopScores();
+                await loadLeaderboard();
+                renderGameGrid();
 
             } catch (error) {
+                console.error('Score submission error:', error);
                 alert(`[ERROR] Failed to submit score: ${error.message}`);
             }
         }
@@ -1027,48 +1146,43 @@
         // ==============================
         async function loadLeaderboard() {
             try {
-                // Get top 10 users by total score
-                const { data: leaderboardData, error } = await supabase
+                const { data: scoresData, error } = await supabase
                     .from('user_scores')
                     .select(`
                         score,
-                        game_id,
-                        profiles (username)
-                    `)
-                    .order('score', { ascending: false })
-                    .limit(100);
+                        user_id,
+                        profiles!inner(username)
+                    `);
 
                 if (error) throw error;
 
-                // Group by user and calculate totals
                 const userTotals = {};
-                leaderboardData.forEach(entry => {
-                    const username = entry.profiles?.username || 'Anonymous';
-                    if (!userTotals[username]) {
-                        userTotals[username] = 0;
-                    }
-                    userTotals[username] += entry.score;
-                });
+                if (scoresData) {
+                    scoresData.forEach(entry => {
+                        const username = entry.profiles?.username || 'Anonymous';
+                        if (!userTotals[username]) {
+                            userTotals[username] = 0;
+                        }
+                        userTotals[username] += entry.score || 0;
+                    });
+                }
 
-                // Sort users by total score
                 const sortedUsers = Object.entries(userTotals)
                     .sort((a, b) => b[1] - a[1])
                     .slice(0, 10);
 
-                // Update global rank for current user
                 const currentUsername = document.getElementById('current-username').textContent;
                 const userIndex = sortedUsers.findIndex(([username]) => username === currentUsername);
                 const globalRank = userIndex !== -1 ? userIndex + 1 : '--';
                 document.getElementById('global-rank').textContent = globalRank;
 
-                // Render leaderboard
                 let leaderboardHTML = '';
                 sortedUsers.forEach(([username, totalScore], index) => {
                     const isCurrentUser = username === currentUsername;
                     leaderboardHTML += `
                         <div class="leaderboard-item" style="${isCurrentUser ? 'background: rgba(10, 255, 10, 0.1);' : ''}">
                             <div class="leaderboard-rank">${index + 1}</div>
-                            <div class="leaderboard-user" style="${isCurrentUser ? 'color: var(--warning);' : ''}">
+                            <div class="leaderboard-user" style="${isCurrentUser ? 'color: var(--warning); font-weight: bold;' : ''}">
                                 ${username}
                             </div>
                             <div class="leaderboard-score">${totalScore}</div>
@@ -1092,6 +1206,16 @@
         // INITIALIZATION
         // ==============================
         async function init() {
+            // Run autofill prevention immediately
+            preventBase64Autofill();
+            
+            // Clear browser cache for inputs
+            const inputs = document.querySelectorAll('.auth-input');
+            inputs.forEach(input => {
+                input.value = '';
+                input.defaultValue = '';
+            });
+            
             // Check for existing session
             const { data: { session } } = await supabase.auth.getSession();
             
@@ -1120,6 +1244,13 @@
 
         // Start the app
         window.addEventListener('load', init);
+
+        // Additional protection: clear inputs on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(preventBase64Autofill, 100);
+            setTimeout(preventBase64Autofill, 500);
+            setTimeout(preventBase64Autofill, 1000);
+        });
 
     </script>
 </body>
